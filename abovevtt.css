@@ -211,9 +211,43 @@ div#scene_properties form > div {
 
 #importer_toggles {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     padding: .5rem .5rem 0;
     width: 100%;
+}
+
+#importer_toggles .importer-s-name {
+    flex: 1 1 30%;
+    max-width: 30%;
+}
+
+#importer_toggles .importer-s-cat {
+    flex: 1 1 50%;
+    max-width: 50%;
+    display: flex;
+}
+
+#importer_toggles .importer-s-sort {
+    flex: 1 1 20%;
+    max-width: 20%;
+    display: flex;
+    align-items: center;
+}
+
+.pagination button {
+    min-width: 33px;
+}
+
+.pagination button.pagination-button.selected {
+    background-color: #AE0404 !important;
+    color: #fff !important;
+    background-image: none !important;
+}
+
+#importer_footer > div {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 25px;
 }
 
 #prewiz td {
@@ -430,4 +464,8 @@ div#scene_properties form > div {
 .add-party-container {
     padding: 10px;
     text-align: right;
+}
+
+#importer_toggles label {
+    margin: 0 0 0 4px;
 }

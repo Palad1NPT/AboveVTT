@@ -913,15 +913,16 @@ function init_ddb_importer(target) {
 }
 
 
-function fill_importer(scene_set, start) {
+function fill_importer(scene_set, pageNum) {
 	area = $("#importer_area");
 	area.empty();
 	area.css("opacity", "0");
 	area.animate({ opacity: "1" }, 300);
 
 	var ddb_extra_found=false;
-	for (var i = start; i < Math.min(start + 8, scene_set.length); i++) {
-		let current_scene = scene_set[i];
+
+	for (var i = (pageNum * 8); i < Math.min((pageNum + 1) * 8, scene_set.maps.length); i++) {
+		let current_scene = scene_set.maps[i];
 
 		if (current_scene.uuid in DDB_EXTRAS) {
 			ddb_extra_found=true;
@@ -929,7 +930,6 @@ function fill_importer(scene_set, start) {
 				current_scene[prop] = DDB_EXTRAS[current_scene.uuid][prop];
 			}
 		}
-
 
 		entry = $("<div/>");
 		entry.css({
@@ -947,7 +947,7 @@ function fill_importer(scene_set, start) {
 			'max-height': '150px',
 
 		});
-		img.attr("src", scene_set[i].thumb);
+		img.attr("src", current_scene.thumb);
 		imgcont = $("<div/>").css({ width: '100%', height: '150px' });
 		imgcont.append(img);
 
@@ -960,11 +960,11 @@ function fill_importer(scene_set, start) {
 		stats.css("height", "15px");
 		stats.css("width", "100%");
 
-		if (scene_set[i].dm_map) {
+		if (current_scene.dm_map) {
 			stats.append("<b style='background: lightblue; border 1px solid back; margin: 5px;' title='Has DM Map'>DM</b>");
 		}
 
-		if ((scene_set[i].snap == "1") || ddb_extra_found) {
+		if ((current_scene.snap == "1") || ddb_extra_found) {
 			stats.append("<b style='background:gold; border 1px solid back; margin: 5px;' title='PRE-ALIGNED'>PRE-CONFIGURED!</b>");
 		}
 		entry.append(stats);
@@ -1020,67 +1020,119 @@ function fill_importer(scene_set, start) {
 		$("#mega_importer").remove();
 	});
 
-	prev = $("<button>PREV</button>");
-	if (start == 0)
-		prev.attr("disabled", "disabled");
-
-	prev.click(function() {
-		fill_importer(scene_set, start - 8);
-	})
-
-	next = $("<button>NEXT</button>");
-	if (i == scene_set.length)
-		next.attr("disabled", "disabled");
-	next.click(function() {
-		fill_importer(scene_set, start + 8);
-	});
+	const MAX_NUMBER_PAGES = 11;
+	const currentMax = Math.min(scene_set.numPages, MAX_NUMBER_PAGES);
+	let assignedButtons = 0;
+	const pagination = $(`<div class="pagination" />`);
+	for (let page = paginationStartPoint(pageNum, MAX_NUMBER_PAGES, scene_set.numPages); assignedButtons < currentMax; page++) {
+		if (page >= 0) {
+			const pageBtn = $(`<button class="pagination-button">${page + 1}</button>`);
+			if (page === pageNum) {
+				pageBtn.addClass("selected");
+			}
+			pageBtn.on('click', function () {
+				fill_importer(presetFilter(), page);
+			});
+			pagination.append(pageBtn);
+			assignedButtons++;
+		}
+	}
 
 	buttons = $("<div/>");
-
-	buttons.css("right", "0");
-	buttons.css("position", "absolute");
+	buttons.append(pagination);
 	buttons.append(cancel);
-	buttons.append(prev);
-	buttons.append(next);
 	footer.append(buttons);
-
-
 
 }
 
 function mega_importer(DDB = false) {
-	container = $("<div id='mega_importer'/>");
-	toggles = $("<div id='importer_toggles'/>");
+	const container = $("<div id='mega_importer'/>");
+	const toggles = $("<div id='importer_toggles'/>");
 
 	if (!DDB) {
-		first = false;
-		for (var i in PRESET) {
-			b = $("<button class='importer_toggle'/>");
-			b.attr("data-key", i)
-			b.text(i);
-
-			b.click(function() {
-				$(".importer_toggle").css("background", "");
-				$(this).css("background", "red");
-				fill_importer(PRESET[$(this).attr('data-key')], 0);
-			})
-			toggles.append(b);
-			if (!first)
-				first = b;
-		}
+		toggles.append(`
+			<div class="importer-s-name">
+				<input type="text" id="mapname" name="mapname" placeholder="Type the map name here...">
+			</div>`
+		);
+		const mapCats = $(`<div class="importer-s-cat" />`);
+		Object.keys(PRESET).forEach((mapCategory, i) => {
+			mapCats.append(`
+				<input type="checkbox" checked class="importer_cat" id="mapcat_${i}" name="mapcat_${i}" value="${mapCategory}" />
+				<label for="mapcat_${i}">${mapCategory}</label>
+			`);
+		});
+		toggles.append(mapCats);
+		toggles.append(`
+			<div class="importer-s-sort">
+				<label for="mapsort">Sort by:</label>
+				<select name="mapsort" id="mapsort">
+					<option value="az">A-Z</option>
+					<option value="za">Z-A</option>
+				</select>
+			</div>
+		`);
 	}
 	else {
 		init_ddb_importer(toggles);
 	}
 	container.append(toggles);
-	area = $("<div id='importer_area'/>").css({ height: "480px", width: "100%" });
+	const area = $("<div id='importer_area'/>").css({ height: "480px", width: "100%" });
 	container.append(area);
-	bottom = $("<div id='importer_footer'/>").css({ height: "30px", width: "100%" });
+	const bottom = $("<div id='importer_footer'/>").css({ height: "30px", width: "100%" });
 	container.append(bottom);
 	$("body").append(container);
-	if (!DDB)
-		first.click();
+
+	if (!DDB) {
+		$("#mapname").on('input', debounce((e) => {
+			fill_importer(presetFilter(), 0);
+		}, 500));
+		$(".importer_cat, #mapsort").on('change', function () {
+			fill_importer(presetFilter(), 0);
+		});
+		fill_importer(presetFilter(), 0);
+	}
 }
 
+function presetFilter() {
+	const mapCats = $(".importer_cat:checked").map(function(){ return this.value; }).get();
+	const mapName = $("#mapname").val();
+	const mapSort = $("#mapsort").val();
 
+	const verifyText = (text, searchPattern) => {
+		return searchPattern.split(' ').every(word => text.indexOf(word) >= 0);
+	}
 
+	const maps = mapCats.reduce((acc, cat) => {
+		 acc.push(
+			...PRESET[cat]
+			.filter(m => mapName.length ? verifyText(m.title.trim().toLowerCase(), mapName.toLowerCase()) : true)
+			.map(m => {
+				return {
+					...m,
+					source: cat
+				};
+			})
+		 );
+		 return acc;
+	}, []).sort((a,b) => {
+		if(a.title < b.title) { return -1; }
+		if(a.title > b.title) { return 1; }
+		return 0;
+	});
+	if (mapSort === "za") {
+		maps.reverse();
+	}
+	return {
+		maps,
+		numRecords: maps.length,
+		numPages: Math.ceil(maps.length / 8)
+	};
+}
+
+function paginationStartPoint(currentPage, maxPaginationButtons, totalPages) {
+	if ((currentPage + Math.floor(maxPaginationButtons / 2)) > totalPages) {
+		return currentPage - (maxPaginationButtons - (totalPages - currentPage));
+	}
+	return currentPage - Math.floor(maxPaginationButtons / 2);
+}
