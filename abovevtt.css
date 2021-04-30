@@ -16,7 +16,8 @@ body > button,
 .stp-btn,
 .player-actions button,
 #add-party,
-.sidebar__controls button {
+.sidebar__controls button,
+.roll-concentration {
     background-image: -webkit-linear-gradient(top, #fff, #e6e6e6);
     color: #3d3d3d;
     height: 22px;
@@ -47,7 +48,8 @@ body > button:hover,
 .sidebar__controls button:hover,
 .player-actions button:hover,
 #add-party:hover,
-.importer_toggle:hover {
+.importer_toggle:hover,
+.roll-concentration:hover {
     color: #333;
     background-image: none;
     background: #e6e6e6;
@@ -567,4 +569,16 @@ div#scene_properties form > div {
     cursor: pointer;
     color:#1b9af0;
     background:white;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.roll-success {
+    color: #080;
+}
+
+.roll-fail {
+    color: #a00;
 }

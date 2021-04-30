@@ -567,6 +567,11 @@ function open_player_sheet(sheet_url) {
 		let tokenid = sheet_url;
 		var synchp = function() {
 			console.log('sinco HP');
+
+			if ($(event.target).contents().find('.ct-health-summary__hp-item-input').length > 0) {
+				return;
+			}
+
 			var hp_element = $(event.target).contents().find(".ct-health-summary__hp-group--primary > div:nth-child(1) .ct-health-summary__hp-number");
 
 			if (hp_element.length > 0) {
@@ -602,15 +607,25 @@ function open_player_sheet(sheet_url) {
 				});
 			});
 
+			savingThrows = []
+			$(event.target).contents().find('.ddbc-saving-throws-summary__ability').each(function() {
+				savingThrows.push({
+					abilityAbbr: $(this).find('.ddbc-saving-throws-summary__ability-name').text(),
+					modifier: `${$(this).find('.ddbc-signed-number__sign').text()}${$(this).find('.ddbc-signed-number__number').text()}`
+				});
+			});
+
 
 			var playerdata = {
 				id: sheet_url,
+				name: $(event.target).contents().find(".ddbc-character-name").text(),
 				hp: current_hp,
 				max_hp: max_hp,
 				ac: $(event.target).contents().find(".ddbc-armor-class-box__value").html(),
 				pp: pp.html(),
 				conditions: conditions,
 				abilities,
+				savingThrows,
 				walking: `${$(event.target).contents().find(".ct-quick-info__box--speed .ddbc-distance-number__number").text()}${$(event.target).contents().find(".ct-quick-info__box--speed .ddbc-distance-number__label").text()}`,
 				inspiration: $(event.target).contents().find('.ct-inspiration__status--active').length
 			};
@@ -756,7 +771,7 @@ function open_player_sheet(sheet_url) {
 
 function init_ui() {
 	window.STARTING = true;
-	var gameid = $("#message-broker-lib").attr("data-gameId");
+	var gameid = $("#message-broker-client").attr("data-gameId");
 	init_splash();
 	window.TOKEN_OBJECTS = {};
 	window.REVEALED = [];
@@ -1329,7 +1344,7 @@ $(function() {
 	delete_button = $("<a class='above-vtt-campaignscreen-black-button button btn modal-link ddb-campaigns-detail-body-listing-campaign-link' id='above-delete'>Delete ALL Data</a>");
 	delete_button.click(function() {
 		if (confirm("Are you sure?")) {
-			gameid = $("#message-broker-lib").attr("data-gameId");
+			gameid = $("#message-broker-client").attr("data-gameId");
 			localStorage.removeItem("ScenesHandler" + gameid);
 			localStorage.removeItem("current_source" + gameid);
 			localStorage.removeItem("current_chapter" + gameid);

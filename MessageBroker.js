@@ -72,6 +72,9 @@ class MessageBroker {
 			if (msg.eventType == "custom/myVTT/chat") {
 				self.handleChat(msg.data);
 			}
+			if (msg.eventType == "custom/myVTT/deleteChat") {
+				$("#" + msg.data).remove();
+			}
 			if (msg.eventType == "custom/myVTT/CT" && (!window.DM)) {
 				self.handleCT(msg.data);
 			}
@@ -150,9 +153,9 @@ class MessageBroker {
 
 		this.callbackQueue = [];
 
-		this.userid = $("#message-broker-lib").attr("data-userId");
-		this.gameid = $("#message-broker-lib").attr("data-gameId");
-		this.url = $("#message-broker-lib").attr("data-connectUrl");
+		this.userid = $("#message-broker-client").attr("data-userId");
+		this.gameid = $("#message-broker-client").attr("data-gameId");
+		this.url = $("#message-broker-client").attr("data-connectUrl");
 
 
 		get_cobalt_token(function(token) {
@@ -177,19 +180,12 @@ class MessageBroker {
 		window.PLAYER_STATS[data.id] = data;
 
 		if (data.id in window.TOKEN_OBJECTS) {
-			var cur = window.TOKEN_OBJECTS[data.id];
-
-			console.log("old " + cur.options.hp + " new " + data.hp);
-			console.log(data.conditions);
-			if (typeof cur.options.hp != "undefined" && cur.options.hp > data.hp && cur.options.custom_conditions.includes("Concentration")) {
-				var msgdata = {
-					player: cur.options.name,
-					img: cur.options.imgsrc,
-					text: "<b>Check for concentration!!</b>",
-				};
-
-				window.MB.sendMessage('custom/myVTT/chat', msgdata);
-				window.MB.handleChat(msgdata);
+			const cur = window.TOKEN_OBJECTS[data.id];
+			console.log("WHY DO YOU DO THIS TO ME", data, cur);
+			if (typeof cur.options.hp != "undefined" && cur.options.hp > data.hp
+				&& data.abilities
+				&& cur.options.custom_conditions.includes("Concentration")) {
+				this.playerAutoConcentrationSave(cur, data);
 			}
 			cur.options.hp = data.hp;
 
@@ -207,22 +203,152 @@ class MessageBroker {
 		update_pclist();
 	}
 
+	playerAutoConcentrationSave(curr, old) {
+		console.log("HANDLING CONCENTRATION");
+		const buttons = [{ name: "Roll", exp: "1d20"}, { name: "Adv", exp: "2d20kh1"}, { name: "Dis", exp: "2d20kl1"}];
+		const reminderId = uuid();
+		var msgdata = {
+			id: reminderId,
+			player: old.name,
+			img: curr.options.imgsrc,
+			text: `
+				<div>
+					<div>
+						<b>Concentration Reminder DC:${Math.max(Math.floor((curr.options.hp - old.hp) / 2), 10)}</b>
+					</div>
+					${
+						old.savingThrows !== undefined ? `
+							<div class="text-center">
+								${
+									buttons.map(b => {
+										return `
+											<button class="roll-concentration"
+												data-id="${old.id}"
+												data-name="${old.name}"
+												data-img="${curr.options.imgsrc}"
+												data-damage="${curr.options.hp - old.hp}"
+												data-exp="${b.exp}"
+												data-modifier="${old.savingThrows.find(a => a.abilityAbbr === "con").modifier}">
+													${b.name}
+											</button>
+										`;
+									}).join('')
+								}
+							</div>
+						` : ''
+					}
+				</div>
+			`
+		};
+
+		window.MB.sendMessage('custom/myVTT/chat', msgdata);
+		window.MB.handleChat(msgdata);
+		$(".roll-concentration").unbind('click'); 
+		$(".roll-concentration").on("click", function(e) {
+			$("#" + reminderId).remove();
+			window.MB.sendMessage('custom/myVTT/deleteChat', reminderId);
+			const playerId = $(this).attr("data-id");
+			const modifier = $(this).attr("data-modifier");
+			const dmg = parseInt($(this).attr("data-damage"));
+			const expression = $(this).attr("data-exp") + modifier;
+			const roll = new rpgDiceRoller.DiceRoll(expression).output;
+			let rollWithoutModifiers = roll.substring(
+				roll.lastIndexOf("[") + 1, 
+				roll.lastIndexOf("]")
+			);
+			let chosenDice;
+			if (rollWithoutModifiers.indexOf(',') >= 0) {
+				chosenDice = rollWithoutModifiers.split(',').find(n => n.indexOf('d') < 0).trim();
+				rollWithoutModifiers = `(${rollWithoutModifiers.replace('d','')})`;
+			} else {
+				chosenDice = rollWithoutModifiers.trim();
+			}
+			const rollResult = roll.split('=')[1].trim();
+			var msgdata = {
+				player: $(this).attr("data-name"),
+				img: $(this).attr("data-img"),
+				text: `
+					<div class="DiceMessage_Container__Y68Io Flex_Flex__3gB7U Flex_Flex__flexDirection-column__1v3au">
+						<div class="DiceMessage_DiceResultContainer__1Z7mm Flex_Flex__3gB7U Flex_Flex__justifyContent-space-between__EKLWJ">
+							<div class="DiceMessage_Result__2MolT">
+								<div class="DiceMessage_Line__29nrU DiceMessage_Title__3Jqh_">
+									<span class="DiceMessage_Action__1VRGG">concentration</span>: 
+									<span class="DiceMessage_RollType__1S9a6 DiceMessage_RollType--save__PRrCv">save</span>
+								</div>
+								<div class="DiceMessage_Line__29nrU DiceMessage_Breakdown__2ueZ5">
+									<svg width="32" height="32" fill="currentColor" xmlns="http://www.w3.org/2000/svg" class="DiceMessage_DieIcon__cntrw"><path d="M16 1l14 7.45v15l-1 .596L16 31 2 23.55V8.45L16 1zm5 19.868H10l6 7.45 5-7.45zm-13.3.496L5 22.954l7.1 3.874-4.4-5.464zm16.6-.1l-4.4 5.464 7.1-3.874-2.7-1.59zM4 13.716v7.55l2.7-1.59-2.7-5.96zm24 0l-2.7 5.96.2.1 2.5 1.49v-7.55zM16 9.841l-6 9.04h12l-6-9.04zm-2-.596l-9.6.795 3.7 7.947L14 9.245zm4 0l5.8 8.742 3.7-8.047-9.5-.695zm-1-5.464V7.16l7.4.596L17 3.781zm-2 0L7.6 7.755l7.4-.596V3.78z"></path></svg>
+									<span class="DiceMessage_Line__29nrU DiceMessage_Number__1Nc8Y DiceMessage_Other__1WOi1" title="${rollWithoutModifiers} ${modifier.split('').join(' ')}">${rollWithoutModifiers} ${modifier.split('').join(' ')}</span>
+								</div>
+								<div class="DiceMessage_Line__29nrU DiceMessage_Notation__1hgBn">
+									<span>${expression}</span>
+								</div>
+							</div>
+							<svg width="19" height="70" viewBox="0 0 19 100" xmlns="http://www.w3.org/2000/svg" class="DiceMessage_Divider__3i8dg"><path fill="currentColor" d="M10 0v30H9V0zm0 70v30H9V70zm9-13H0v-3h19zm0-10H0v-3h19z"></path></svg>
+							<div class="DiceMessage_TotalContainer__Hw-7A Flex_Flex__3gB7U Flex_Flex__flexDirection-column__1v3au">
+								${
+									expression.indexOf("kh1") >= 0 ? `
+										<small class="DiceMessage_TotalHeader__cW9ww DiceMessage_TotalHeader__advantage__VDFPu"><span>+ADV</span></small>
+									` : ''
+								}
+								${
+									expression.indexOf("kl1") >= 0 ? `
+										<small class="DiceMessage_TotalHeader__cW9ww DiceMessage_TotalHeader__disadvantage__2E2r9"><span>-DIS</span></small>
+									` : ''
+								}
+								<div class="DiceMessage_Total__2Rria DiceMessage_Other__1WOi1 Flex_Flex__3gB7U">
+									<span>${rollResult}</span>
+								</div>
+							</div>
+						</div>
+						<div class="DiceThumbnails_DicePreviewContainer__1Eyt7 Flex_Flex__3gB7U Flex_Flex__flexDirection-column__1v3au">
+							<div class="DiceThumbnails_SetPreviewContainer__28Qp_ Flex_Flex__3gB7U">
+								<span class="DiceThumbnails_PreviewThumbnail__3EGck DiceThumbnail_DieThumbnailContainer__Tndag">
+									<span title="${rollWithoutModifiers}" class="DiceThumbnail_DieThumbnailWrapper__1dcSw">
+										<img class="DiceThumbnail_DieThumbnailImage__1o6YK" src="https://www.dndbeyond.com/dice/images/thumbnails/00101-d20-${chosenDice}.png" alt="d20 roll of ${chosenDice}">
+									</span>
+								</span>
+								<div class="DiceThumbnails_SetPreviewDescriptionContainer__1doCX">
+									<div class="DiceThumbnails_Divider__3_L6S"></div>
+									<div class="DiceThumbnails_SetPreviewActionsContainer__fsi6Z Flex_Flex__3gB7U">
+										<span class="DiceThumbnails_SetPreviewDescription__3IiR1">Result: ${
+											rollResult >= Math.max(Math.floor(dmg / 2), 10) ? `<span class="roll-success">Success</span>` : `<span class="roll-fail">Fail</span>`
+										}
+										</span>
+										<span class="DiceThumbnails_SetPreviewDescription__3IiR1">DC:${Math.max(Math.floor(dmg / 2), 10)}</span>
+									</div>
+								</div>
+							</div>
+							<div class="DiceThumbnails_DieThumbnailsList__3mq_P"></div>
+						</div>
+					</div>`,
+			};
+
+			if (rollResult < Math.max(Math.floor(dmg / 2), 10)) {
+				window.TOKEN_OBJECTS[playerId].options.custom_conditions = window.TOKEN_OBJECTS[playerId].options.custom_conditions.filter(x => {
+					x.toLowerCase() !== "concentration"
+				});
+				window.TOKEN_OBJECTS[playerId].place();
+			}
+	
+			window.MB.sendMessage('custom/myVTT/chat', msgdata);
+			window.MB.handleChat(msgdata);
+		});
+	}
+
 	handleChat(data,local=false) {
 		if(data.dmonly && !(window.DM) && !local) // /dmroll only for DM of or the user who initiated it
 			return;
 		notify_gamelog();
-		var newentry = $("<li></li>");
+		var newentry = $(`<li ${data.id ? `id="${data.id}"` : ""}></li>`);
 		newentry.attr('class', 'GameLogEntry_GameLogEntry__3EVrE GameLogEntry_Other__2PSbv Flex_Flex__3gB7U Flex_Flex__alignItems-flex-end__YiKos Flex_Flex__justifyContent-flex-start__1lEY5');
-		newentry.append($("<p role='img class='Avatar_Avatar__2KZS- Flex_Flex__3gB7U'><img class='Avatar_AvatarPortrait__2dP8u' src='" + data.img + "'></p>"));
+		newentry.append($("<p role='img' class='Avatar_Avatar__2KZS- Flex_Flex__3gB7U'><img class='Avatar_AvatarPortrait__2dP8u' src='" + data.img + "'></p>"));
 		var container = $("<div class='GameLogEntry_MessageContainer__UYzc0 Flex_Flex__3gB7U Flex_Flex__alignItems-flex-start__3ZqUk Flex_Flex__flexDirection-column__1v3au'></div>");
 		container.append($("<div class='GameLogEntry_Line__1JeGA GameLogEntry_Sender__2LjcO'><span>" + data.player + "</span></div>"));
 		var entry = $("<div class='GameLogEntry_Message__1GoY3 GameLogEntry_Collapsed__1fgGY GameLogEntry_Other__2PSbv Flex_Flex__3gB7U'>" + data.text + "</div>");
 		container.append(entry);
 
-
 		var d = new Date();
-		var datetime = d.toISOString();
-		container.append($("<time datetime='" + datetime + "' class='GameLogEntry_TimeAgo__1T3dC TimeAgo_TimeAgo__XzWqO'></time"));
+		container.append($(`<time datetime='${d.toISOString()}' title="${d.toLocaleString()}" class='GameLogEntry_TimeAgo__1T3dC TimeAgo_TimeAgo__XzWqO'>${d.toLocaleString()}</time>`));
 
 		newentry.append(container);
 

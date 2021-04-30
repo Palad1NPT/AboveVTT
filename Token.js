@@ -147,8 +147,6 @@ class Token {
 			delete this.options.hidden;
 
 
-
-
 		if ((!(this.options.monster > 0)) || window.DM) {
 			if (old.find(".hp").val().startsWith("+") || old.find(".hp").val().startsWith("-")) {
 				old.find(".hp").val(parseInt(this.options.hp) + parseInt(old.find(".hp").val()));
