@@ -568,7 +568,9 @@ function open_player_sheet(sheet_url) {
 		var synchp = function() {
 			console.log('sinco HP');
 
-			if ($(event.target).contents().find('.ct-health-summary__hp-item-input').length > 0) {
+			if (
+				$(event.target).contents().find('.ct-health-summary__hp-item-input').length > 0
+			) {
 				return;
 			}
 
@@ -584,7 +586,6 @@ function open_player_sheet(sheet_url) {
 					max_hp = window.PLAYERDATA.max_hp;
 				else
 					max_hp = 0;
-
 			}
 
 

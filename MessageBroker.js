@@ -181,9 +181,9 @@ class MessageBroker {
 
 		if (data.id in window.TOKEN_OBJECTS) {
 			const cur = window.TOKEN_OBJECTS[data.id];
-			console.log("WHY DO YOU DO THIS TO ME", data, cur);
 			if (typeof cur.options.hp != "undefined" && cur.options.hp > data.hp
 				&& data.abilities
+				&& data.hp > 0
 				&& cur.options.custom_conditions.includes("Concentration")) {
 				this.playerAutoConcentrationSave(cur, data);
 			}
@@ -193,6 +193,9 @@ class MessageBroker {
 			cur.options.max_hp = data.max_hp;
 			cur.options.ac = data.ac;
 			cur.options.conditions = data.conditions;
+			if (data.hp == 0) {
+				cur.options.custom_conditions = cur.options.custom_conditions.filter(x => x.toLowerCase() !== "concentration");
+			}
 
 			cur.place();
 			window.MB.sendMessage('custom/myVTT/token', cur.options);
@@ -204,7 +207,6 @@ class MessageBroker {
 	}
 
 	playerAutoConcentrationSave(curr, old) {
-		console.log("HANDLING CONCENTRATION");
 		const buttons = [{ name: "Roll", exp: "1d20"}, { name: "Adv", exp: "2d20kh1"}, { name: "Dis", exp: "2d20kl1"}];
 		const reminderId = uuid();
 		var msgdata = {
