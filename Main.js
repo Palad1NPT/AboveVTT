@@ -767,18 +767,26 @@ function open_player_sheet(sheet_url) {
 
 					observer.observe(mutation_target, mutation_config);
 				}
-				const dmgRollsRegex = /(\d+)?d(\d+)([\+\-]\d+)?/i;
+				const dmgRollsRegex = /(\d+)?d(\d+)([\+\-]\d+)?/ig;
+				const atkRollsRegex = /([+])\d /igm;
+				observer.disconnect();
 				$(event.target).contents().find(".ddbc-creature-block__description-block-content p").filter(function () {
-					const match = dmgRollsRegex.exec($(this).text().replaceAll(' ', ''));
-					if (match) {
-						console.log("FOUNDITAT", match);
-						console.log("FOUNDITAT  HTML", $(this).html());
-						console.log("FOUNDITAT NEW HTML", $(this).html().replace(match[0].replace("+", " + "), `<button data-roll="${match[0]}>ROLL CRL</button>`));
-						$(this).html(
-							$(this).html().replace(match[0].replace("+", " + "), `<button data-roll="${match[0]}>ROLL CRL</button>`)
+					let html = $(this).html();
+					while (match = dmgRollsRegex.exec($(this).html().replaceAll(" ", ""))) {
+						html = html.replace(`(${match[0].replace("+", " + ")})`, `<button class="extra-rolls" data-roll="${match[0]}">${match[0]}</button>`);
+					}
+					while (match = atkRollsRegex.exec($(this).html())) {
+						const advRoll = ("2d20kh1" + match[0]).trim();
+						const disRoll = ("2d20kl1" + match[0]).trim();
+						html = html.replace(
+							`${match[0]}`,
+							`<button class="extra-rolls" data-roll="1d20${match[0].trim()}">${match[0]}</button><button class="extra-rolls" data-roll="${advRoll}">ADV</button><button class="extra-rolls" data-roll="${disRoll}">DIS</button>`
 						);
-					} 
+					}
+					$(this).html(html);
 				});
+				observer.observe(mutation_target, mutation_config);
+				extra_rolls_listener($(event.target).contents());
 			}
 		});
 
@@ -837,8 +845,6 @@ function open_player_sheet(sheet_url) {
 
 
 }
-
-
 
 function init_ui() {
 	window.STARTING = true;
@@ -1401,6 +1407,31 @@ function init_buttons() {
 	draw_menu.find(".coloroption").first().click();
 
 	setup_draw_buttons();
+}
+
+function extra_rolls_listener(parentElement) {
+	parentElement.find(".extra-rolls").on("click", function () {
+		const uuid = new Date().getTime();
+		console.log("MY DATAROLL", $(this).attr("data-roll"));
+		const roll = new rpgDiceRoller.DiceRoll($(this).attr("data-roll")).output;
+		data = {
+			player: window.PLAYER_NAME,
+			img: window.PLAYER_IMG,
+			text: window.DM ? `<div class="d-block"><div>${roll}</div><div class="text-center"><button id="${uuid}">Send to Players</button></div></div>` : roll,
+			dmonly: window.DM || false,
+			id: window.DM ? `li_${uuid}` : undefined
+		};
+		window.MB.sendMessage('custom/myVTT/chat', data);
+		window.MB.handleChat(data,true);
+		if (window.DM) {
+			$("#" + uuid).on("click", () => {
+				const newData = {...data, dmonly: false, id: undefined, text: roll};
+				window.MB.sendMessage('custom/myVTT/chat', newData);
+				window.MB.handleChat(newData,true);
+				$("#li_" + uuid).remove()
+			});
+		}
+	});
 }
 
 
