@@ -767,6 +767,18 @@ function open_player_sheet(sheet_url) {
 
 					observer.observe(mutation_target, mutation_config);
 				}
+				const dmgRollsRegex = /(\d+)?d(\d+)([\+\-]\d+)?/i;
+				$(event.target).contents().find(".ddbc-creature-block__description-block-content p").filter(function () {
+					const match = dmgRollsRegex.exec($(this).text().replaceAll(' ', ''));
+					if (match) {
+						console.log("FOUNDITAT", match);
+						console.log("FOUNDITAT  HTML", $(this).html());
+						console.log("FOUNDITAT NEW HTML", $(this).html().replace(match[0].replace("+", " + "), `<button data-roll="${match[0]}>ROLL CRL</button>`));
+						$(this).html(
+							$(this).html().replace(match[0].replace("+", " + "), `<button data-roll="${match[0]}>ROLL CRL</button>`)
+						);
+					} 
+				});
 			}
 		});
 
